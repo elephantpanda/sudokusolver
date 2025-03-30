@@ -1,0 +1,261 @@
+<html>
+<body style="background-color:black;color:white">
+<h1>Sudoku Solve</h1>
+Solving sudokus by gradient descent<br>   
+You can find sudokus to enter <a href="https://www.kaggle.com/datasets/rohanrao/sudoku">here:</a><br:  
+Input digits:<br>
+<input style="width:800" id="input" /><br>
+Solution (if you have it) otherwise leave blank:<br>
+<input style="width:800" id="inputSolution" />
+<br>
+<button onclick="solve()">SOLVE</button>
+<br>
+<div id=output>
+
+
+</div>
+<br>
+<div id=errorcell>
+
+</div>
+
+
+
+<script>
+function create4DArray(size) {
+    let array = new Array(size).fill().map(() =>
+        new Array(size).fill().map(() =>
+            new Array(size).fill().map(() =>
+                new Array(size).fill().map( () =>
+                    new Array(9).fill(0))
+            )
+        )
+    );
+    return array;
+}
+function create4DMask(size) {
+    let array = new Array(size).fill().map(() =>
+        new Array(size).fill().map(() =>
+            new Array(size).fill().map(() =>
+                new Array(size).fill(0)
+            )
+        )
+    );
+    return array;
+}
+
+var sudoku="070000043040009610800634900094052000358460020000800530080070091902100005007040802"
+//var sudoku="301086504046521070500000001400800002080347900009050038004090200008734090007208103"
+//var sudoku="048301560360008090910670003020000935509010200670020010004002107090100008150834029"
+//var sudoku=  "000801000000000430500000000000070800000000100020030000600000075003400000000200600" //minimal hard!!
+var solution="679518243543729618821634957794352186358461729216897534485276391962183475137945862"
+//var solution="371986524846521379592473861463819752285347916719652438634195287128734695957268143"
+//var solution="748391562365248791912675483421786935589413276673529814834962157296157348157834629"
+//var solution="000801000000000430500000000000070800000000100020030000600000075003400000000200600"
+output=document.getElementById("output")
+
+X = create4DArray(3);
+mask = create4DMask(3);
+sol = create4DArray(3);
+
+document.getElementById("input").value=sudoku
+document.getElementById("inputSolution").value=solution
+
+var n=1;//1/9.0;
+
+function normalise(V,k=2){
+    var r=0;
+    for(var i=0;i<V.length;i++) r+=Math.pow(V[i],k);
+    var len = Math.pow(r,1.0/k);
+    for(var i=0;i<V.length;i++) V[i]/len;
+}
+
+function setGrid(X,sudoku){
+    for(var x=0;x<3;x++){
+        for(var y=0;y<3;y++){
+            for(var z=0;z<3;z++){
+                for(var w=0;w<3;w++){
+                    var V=[0,0,0,0,0,0,0,0,0]
+                    var U=[n,n,n,n,n,n,n,n,n]
+                    //normalise(U)
+                    //Doesn't work if we start with random values!!!
+                    //var U=[Math.random(),Math.random(),Math.random(),Math.random(),Math.random(),Math.random(),Math.random(),Math.random(),Math.random()]
+                    var N=parseInt(sudoku[(3*x+y)*9 + (3*z+w) ],10)
+                    if(N>0) V[N-1]=1; 
+                    else {V=U ;mask[x][y][z][w]=1;}
+                    X[x][y][z][w] = V
+                }
+            }
+        }
+    }
+}
+
+function dot(A,B){
+    var s=0
+    for(var x=0;x<A.length;x++){
+        s+=A[x]*B[x];
+    }
+    return s;
+}
+
+delta = [[1,0,0],[0,1,0],[0,0,1]]
+
+function gridError(X){
+    var result=0;
+    for(var x=0;x<3;x++)
+    for(var y=0;y<3;y++)
+    for(var z=0;z<3;z++)
+    for(var w=0;w<3;w++)
+    for(var s=0;s<3;s++)
+    for(var t=0;t<3;t++)
+    result+=
+        Math.pow(dot( X[x][y][z][w] , X[x][y][s][t]) - delta[z][s]*delta[w][t],2)  //columns
+        +Math.pow(dot( X[x][y][z][w] , X[s][t][z][w]) - delta[x][s]*delta[y][t],2)  //rows
+        +Math.pow(dot( X[x][y][z][w] , X[x][s][z][t]) - delta[y][s]*delta[w][t],2)  //boxes
+
+    return result;
+    //not used:
+    // dot( X[x][y][z][w] , X[s][y][t][z]) - delta[x][s]*delta[z][t])^2  //disjoints
+}
+
+
+function dx(X,P,Q,R,S,i){
+    if(mask[P][Q][R][S]==0) return 0;
+    var result=0
+    var V=X[P][Q][R][S]
+    for(var x=0;x<3;x++)
+    for(var y=0;y<3;y++)
+    result+= 
+      dot( V , X[P][Q][x][y]) * X[P][Q][x][y][i] //columns
+    + dot( V , X[x][y][R][S]) * X[x][y][R][S][i] //rows
+    + dot( V , X[P][x][R][y]) * X[P][x][R][y][i]  //boxes
+   // + dot( V , X[x][Q][y][S] ) * X[x][Q][y][S][i]  //disjoints
+
+    return -(result - 3*V[i])
+}
+
+colors = 
+[
+     [1.0,0.0,0.0],
+     [0.7,0.3,0.0],
+     [0.3,0.7,0.0],
+     [0.0,1.0,0.0],
+     [0.0,0.7,0.3],
+     [0.0,0.3,0.7],
+     [0.0,0.0,1.0],
+     [0.3,0.0,0.7],
+     [0.7,0.0,0.3]]
+
+function getColor(V){
+    R=0
+    G=0
+    B=0
+    for(i=0;i<9;i++){
+        R+=V[i]*colors[i][0]*255
+        G+=V[i]*colors[i][1]*255
+        B+=V[i]*colors[i][2]*255
+    }
+    return "rgb("+R+","+G+","+B+")"
+}
+
+
+
+function createTable(name){
+    var s="<table style='border-collapse:collapse;border:4px white solid;color:black'>";
+    for(var x=0;x<3;x++){
+        for(var y=0;y<3;y++){
+            s+="<tr>"
+            for(var z=0;z<3;z++){
+                for(var w=0;w<3;w++){
+                    s+="<td style='border:1px white solid;border-collapse:collapse;width:25;height:25;text-align:center' id="+name+(3*x+y)+""+(3*z+w)+"> </td>";                   
+                }
+            }
+            s+="</tr>"
+        }
+    }
+    s+="</table>"
+    output.innerHTML+=s 
+}
+createTable("cell")
+output.innerHTML+="Solution<br>"
+createTable("sols")
+
+
+
+function showGrid(X,name){
+    for(var x=0;x<3;x++){
+        for(var y=0;y<3;y++){
+            for(var z=0;z<3;z++){
+                for(var w=0;w<3;w++){
+                    var V = X[x][y][z][w].map(Math.abs)
+                    cell=document.getElementById(name+(3*x+y)+""+(3*z+w))
+                    cell.innerText=(V.indexOf(Math.max(...V))+1);  
+                    cell.style.backgroundColor  = getColor(V)                
+                }
+            }
+        }
+    }
+    
+}
+
+error=0
+//output.innerText+="\n"+error;
+
+nn=0
+learningRate=0.01
+function loop(){
+    nn++
+    //output.innerText="";
+    showGrid(X,"cell")
+    //output.innerText+="\nSolution:\n"
+    showGrid(sol,"sols")
+
+    var errorX=gridError(X)
+    document.getElementById("errorcell").innerText="\nError = "+Math.sqrt(errorX)+" "+nn;
+    Y=structuredClone(X)
+    
+    for(var x=0;x<3;x++)for(var y=0;y<3;y++) for(var z=0;z<3;z++)for(var w=0;w<3;w++){
+        for(var i=0;i<9;i++) Y[x][y][z][w][i] 
+    +=
+    dx(X,x,y,z,w,i)*learningRate
+
+    //shouldn't vary the original digits
+
+    //(2*Math.random()-1)*learningRate;
+   // normalise(Y[x][y][z][w],1)
+
+    }
+    
+    var errorY=gridError(Y)
+    //if(errorY<errorX) 
+    if(errorY>1000) learningRate/=1.5
+
+    X=Y
+    
+}
+
+
+
+
+function solve(){
+    sudoku=document.getElementById("input").value
+    solution=document.getElementById("inputSolution").value
+    setGrid(X,sudoku)//sudoku
+    setGrid(sol,solution)
+    showGrid(X,"cell")
+    showGrid(sol,"sols")
+
+    var error=gridError(X)
+    //output.innerText+="\n"+error;
+    learningRate=0.01
+}
+
+solve()
+setInterval(loop ,10)
+
+</script>
+
+
+
+</body>
+</html>
