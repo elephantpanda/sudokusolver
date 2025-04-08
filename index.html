@@ -81,7 +81,7 @@ function setGrid(X,sudoku){
                     //Doesn't work if we start with random values!!!
                     //var U=[Math.random(),Math.random(),Math.random(),Math.random(),Math.random(),Math.random(),Math.random(),Math.random(),Math.random()]
                     var N=parseInt(sudoku[(3*x+y)*9 + (3*z+w) ],10)
-                    if(N>0) {V[N-1]=1; mask[x][y][z][w]=0;}
+                    if(N>0) V[N-1]=1; 
                     else {V=U ;mask[x][y][z][w]=1;}
                     X[x][y][z][w] = V
                 }
@@ -240,6 +240,7 @@ function loop(){
 function solve(){
     sudoku=document.getElementById("input").value
     solution=document.getElementById("inputSolution").value
+    mask = create4DMask(3);
     setGrid(X,sudoku)//sudoku
     setGrid(sol,solution)
     showGrid(X,"cell")
