@@ -56,6 +56,7 @@ output=document.getElementById("output")
 
 X = create4DArray(3);
 mask = create4DMask(3);
+current = create4DMask(3);
 sol = create4DArray(3);
 
 document.getElementById("input").value=sudoku
@@ -88,6 +89,25 @@ function setGrid(X,sudoku){
             }
         }
     }
+}
+
+function isSolved(grid){
+    for(var x=0;x<3;x++){
+        for(var y=0;y<3;y++){
+            var row=0
+            var col=0
+            var box=0
+            for(var z=0;z<3;z++){
+                for(var w=0;w<3;w++){
+                    box|= 1<<grid[x][z][y][w];
+                    row|= 1<<grid[x][y][z][w];
+                    col|= 1<<grid[z][w][x][y];
+                }
+            }
+            if(box!=511 || row!=511 || col!=511) return false;
+        }
+    }
+    return true;
 }
 
 function dot(A,B){
@@ -185,17 +205,22 @@ createTable("sols")
 function showGrid(X,name){
     for(var x=0;x<3;x++){
         for(var y=0;y<3;y++){
+            var row=0
+            var col=0
+            var box=0
             for(var z=0;z<3;z++){
                 for(var w=0;w<3;w++){
                     var V = X[x][y][z][w].map(Math.abs)
                     cell=document.getElementById(name+(3*x+y)+""+(3*z+w))
-                    cell.innerText=(V.indexOf(Math.max(...V))+1);  
-                    cell.style.backgroundColor  = getColor(V)                
+                    var N=(V.indexOf(Math.max(...V))+1);
+                    cell.innerText=""+N;  
+                    cell.style.backgroundColor  = getColor(V)     
+                    
+                    current[x][y][z][w] = N-1;
                 }
             }
         }
     }
-    
 }
 
 error=0
@@ -207,17 +232,17 @@ function loop(){
     nn++
     //output.innerText="";
     showGrid(X,"cell")
+    var solved=isSolved(current)
     //output.innerText+="\nSolution:\n"
     showGrid(sol,"sols")
 
     var errorX=gridError(X)
-    document.getElementById("errorcell").innerText="\nError = "+Math.sqrt(errorX)+" "+nn;
+    document.getElementById("errorcell").innerText="\nError = "+Math.sqrt(errorX)+" "+nn +"\nSolved="+solved;
     Y=structuredClone(X)
     
     for(var x=0;x<3;x++)for(var y=0;y<3;y++) for(var z=0;z<3;z++)for(var w=0;w<3;w++){
         for(var i=0;i<9;i++) Y[x][y][z][w][i] 
-    +=
-    dx(X,x,y,z,w,i)*learningRate
+    += dx(X,x,y,z,w,i)*learningRate
 
     //shouldn't vary the original digits
 
